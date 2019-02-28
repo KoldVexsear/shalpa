@@ -1,16 +1,20 @@
 module Lib (translate) where
 
-import Data.List
+import Data.List hiding (union)
 import System.Environment
 import Data.Int
 import Data.Char
 import Data.Maybe
 
-import Data.Map (Map, (!))
+import Data.Map (Map, (!), union)
 import qualified Data.Map as Map
 
---translate :: [Char] -> [Char]
---translate t = unlines $ map (translate_line) (lines t)
+-- -------------------------
+
+f_start_code = 0x2800
+
+-- -------------------------
+
 
 translate :: [Char] -> [Char]
 translate l = unwords $ map (translate_word) (words l)
@@ -20,40 +24,73 @@ translate_word w = map (codeToSym) $ fix $ translate_wordb w False
 
 fix = fix_tiend . fix_ends . fix_vols . fix_vols'
 
+
+-- transform end -ти to ligature code
 fix_tiend :: [Int] -> [Int]
 fix_tiend [] = []
 fix_tiend (x: []) = [x]
 fix_tiend (x:y:xs)
-                 | x == 0x281A && (y == 0x288B || y == 0x28AB) = 0x28C0 : fix_tiend xs
+                 | x == ta && y `elem` ias = ati : fix_tiend xs
                  | otherwise = x : fix_tiend (y:xs)
+                 where
+                 ta  =  f_start_code + 0x001A                         -- code 'т'
+                 ias = [f_start_code + 0x008B, f_start_code + 0x00AB] -- code 'и'
+                 ati =  f_start_code + 0x00C0                         -- code '-ти'
 
+-- fix breaks after end letters (bya)
 fix_ends :: [Int] -> [Int]
 fix_ends [] = []
-fix_ends (x:[]) = [x]
+fix_ends (x : []) = [x]
 fix_ends (x:y:xs)
-                | not (xel bepcodes) && not (yel bepcodes) && (x `mod` 4 == 3 || x `mod` 4 == 0) && (y `mod` 4 == 1 || y `mod` 4 == 2) = x : fix_ends ((y - (y `mod` 4) + 1) : xs)
-                | not (xel bepcodes) && not (yel bepcodes) && (x `mod` 4 == 3 || x `mod` 4 == 0) && (y `mod` 4 == 0 || y `mod` 4 == 3) = x : fix_ends ((y - (y `mod` 4)) : xs)
-                | x == 0x060B  && not (yel bepcodes) && (y `mod` 4 == 1 || y `mod` 4 == 2) = fix_ends((y - (y `mod` 4) + 1) : xs)
-                | x == 0x060B  && not (yel bepcodes) && (y `mod` 4 == 0 || y `mod` 4 == 3) = fix_ends ((y - (y `mod` 4)) : xs)
+                | not_zap x && not_zap y && (isEnd x ||  isSep x) && isMid y = x : fix_ends (toFir y : xs)
+                | not_zap x && not_zap y && (isEnd x ||  isSep x) && isMid y = x : fix_ends (toSep y   : xs)
+
+                | not_zap x && isFir x &&  y == sepa = toSep x : fix_ends (y : xs)
+                | not_zap x && isMid   x &&  y == sepa = toEnd x : fix_ends (y : xs)
+
+                | x == sepa && not_zap y &&  isMid y = fix_ends (toFir y : xs)
+                | x == sepa && not_zap y &&  isEnd y = fix_ends (toSep   y : xs)
+
                 | otherwise = x : fix_ends (y:xs)
                 where
-                   xel t = x `elem` t
-                   yel t = y `elem` t
+                   not_zap x = x `notElem` bepcodes ++ numcodes
+                   sepa  = symCodeSh '-'
 
+
+-- fix long cols
 fix_vols :: [Int] -> [Int]
 fix_vols [] = []
 fix_vols (x:[]) = [x]
 fix_vols (x:y:xs)
-                | x >= 0x0680 && x <= 0x0693 && y == 0x060E = (x + 20) : (fix_vols xs)
+                | x `elem` allvepcodes && y == long_term = (x + shift_long) : (fix_vols xs)
                 | otherwise = x : fix_vols (y:xs)
+                where
+                shift_long = 0x0020
+                long_term  = symCodeSh '\''
 
 
+-- fix state 'а'
 fix_vols' :: [Int] -> [Int]
-
 fix_vols' [] = []
-fix_vols' (x:xs)
-        | x == 0x0612 = 0x0682 : fix_vols' xs
-        | otherwise   = x : fix_vols' xs
+fix_vols' (x:[]) = [x]
+fix_vols' (x:y:xs)
+        | x == ekr && y == ekr       = x      : fix_vols' xs
+        | y == ekr                 = x      : fix_vols' (y:xs)
+        | x == ekr && y == sep_al    = sep_as : fix_vols' xs
+        | x == ekr && y == fir_al    = fir_as : fix_vols' xs
+        | x == ekr && y == end_al    = end_as : fix_vols' xs
+        | y == mid_al && y == fir_al = mid_as : fix_vols' xs
+        | otherwise               = x      : fix_vols' xs
+        where
+        sep_al = f_start_code + 0x0010
+        fir_al = f_start_code + 0x0011
+        mid_al = f_start_code + 0x0012
+        end_al = f_start_code + 0x0013
+        sep_as = f_start_code + 0x0080
+        fir_as = f_start_code + 0x0081
+        mid_as = f_start_code + 0x0082
+        end_as = f_start_code + 0x0083
+        ekr = symCodeSh '\\'
 
 translate_wordb :: String -> Bool -> [Int]
 translate_wordb w key
@@ -63,12 +100,13 @@ translate_wordb w key
                | len == 2 && key == True  = [translate_symbol f Middle] ++ [translate_symbol l Middle]
                | len == 1 && key == False = [translate_symbol f Separate]
                | len == 1 && key == True  = [translate_symbol f Middle]
-               | otherwise                = []
+               | otherwise             = []
                where
                  f   = head w
                  m   = init $ tail w
                  l   = last w
                  len = length w
+
 
 
 data Code = Separate | First | Middle | Last
@@ -77,24 +115,24 @@ data Code = Separate | First | Middle | Last
 
 translate_symbol :: Char -> Code -> Int
 
-translate_symbol 'а' First  = translate_symbol 'а' Separate
-
 translate_symbol 'g' Middle = translate_symbol 'g' Last
 translate_symbol 'j' Middle = translate_symbol 'j' Last
 
 translate_symbol s code
-                       | s `elem` barbata = translate_symb_s s
-                       | code == Separate = translate_symb_s s
-                       | code == First    = translate_symb_f s
-                       | code == Middle   = translate_symb_m s
-                       | code == Last     = translate_symb_l s
+                       | s `notElem` leters      = symCodeSh s
+                       | code == Separate = symCodeSh s
+                       | code == First    = symCodeSh s + shift_fir
+                       | code == Middle   = symCodeSh s + shift_mid
+                       | code == Last     = symCodeSh s + shift_end
+                       where
+                       leters = albatas ++ vabatas
+                       shift_fir = 1
+                       shift_mid = 2
+                       shift_end = 3
 
-translate_symb_s s = findTablaCode s
-translate_symb_f f = findTablaCode f + 1
-translate_symb_m m = findTablaCode m + 2
-translate_symb_l l = findTablaCode l + 3
-
-
+--
+-- Блок работы с символами
+--
 
 albataM = [ 'а', 'б', 'т', 'с'
          , 'л', 'в', 'д', 'з'
@@ -111,14 +149,21 @@ vals2 = ['я', 'э', 'ы', 'ю', 'ё']
 valss = vals1 ++ vals2
 vabatas  = valss ++ map toUpper valss
 
-barbata = [',', '\'', '.']
+barbata = [',', '.']
 
 numbata = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
-sepcodes = [0x2810, 0x2814 .. 0x2868]
-vepcodes = [0x2880, 0x2884 .. 0x28A4]
-bepcodes = [0x287D, 0x287E,  0x287F]
-numcodes = [0x2870, 0x2871 .. 0x2879]
+sepcodes = [f_start_code + 0x0010, f_start_code + 0x0014 .. f_start_code + 0x0068]
+vepcodes = [f_start_code + 0x0080, f_start_code + 0x0084 .. f_start_code + 0x00A4]
+bepcodes = [f_start_code + 0x007D, f_start_code + 0x007F]
+numcodes = [f_start_code + 0x0070, f_start_code + 0x0071 .. f_start_code + 0x0079]
+
+allsepcodes = [head sepcodes .. last sepcodes]
+allvepcodes = [head vepcodes .. last vepcodes]
+allbepcodes = [head bepcodes .. last bepcodes]
+allnumcodes = [head numcodes .. last numcodes]
+allletters  =  allsepcodes   ++ allvepcodes
+
 
 alb = Map.fromList $ zip albatas (sepcodes ++ sepcodes)
 vab = Map.fromList $ zip vabatas (vepcodes ++ vepcodes ++ vepcodes ++ vepcodes)
@@ -126,22 +171,21 @@ vab = Map.fromList $ zip vabatas (vepcodes ++ vepcodes ++ vepcodes ++ vepcodes)
 bab = Map.fromList $ zip barbata bepcodes
 nup = Map.fromList $ zip numbata numcodes
 
-tabla = zip albataM sepcodes
+alls = alb `union` vab `union` bab `union` nup
 
-isInTabla s = True
-
-
-findTablaCode :: Char -> Int
-findTablaCode s | s `elem` al = alb ! s
-                | s `elem` ba = bab ! s
-                | s `elem` va = vab ! s
-                | s `elem` na = nup ! s
-                | otherwise = 0x0600
+symCodeSh :: Char -> Int
+symCodeSh s | s `elem` Map.keys alls = alls ! s
+                | otherwise = fromEnum s
                 where
-                  cod s t = findIndex (\b -> b == s) t
-                  al = Map.keys alb
-                  va = Map.keys vab
-                  ba = Map.keys bab
-                  na = Map.keys nup
+                  cod s t = findIndex (\x -> x == s) t
 
 codeToSym c = toEnum (read (show c):: Int) :: Char
+
+toSep n = n - (n `mod` 4) + 0
+toFir n = n - (n `mod` 4) + 1
+toMid n = n - (n `mod` 4) + 2
+toEnd n = n - (n `mod` 4) + 3
+isSep n = n `mod` 4 == 0
+isFir n = n `mod` 4 == 1
+isMid n = n `mod` 4 == 2
+isEnd n = n `mod` 4 == 3

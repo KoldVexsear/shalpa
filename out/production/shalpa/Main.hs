@@ -12,3 +12,5 @@ main = do
     args <- getArgs
     let argsl = unlines args
     hPutStrLn stdout $ translate argsl
+
+
