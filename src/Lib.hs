@@ -130,6 +130,7 @@ tabla = zip albataM sepcodes
 
 isInTabla s = True
 
+
 findTablaCode :: Char -> Int
 findTablaCode s | s `elem` al = alb ! s
                 | s `elem` ba = bab ! s

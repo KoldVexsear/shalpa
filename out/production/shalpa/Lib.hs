@@ -94,32 +94,39 @@ translate_symb_f f = findTablaCode f + 1
 translate_symb_m m = findTablaCode m + 2
 translate_symb_l l = findTablaCode l + 3
 
-albata = [ 'а', 'б', 'т', 'с'
+
+
+albataM = [ 'а', 'б', 'т', 'с'
          , 'л', 'в', 'д', 'з'
          , 'р', 'х', 'м', 'г'
          , 'к', 'н', 'п', 'ф'
          , 'ч', 'ц', 'ш', 'ж'
          , 'g', 'j'
          ]
+albataMb = map toUpper albataM
+albatas  = albataM ++ albataMb
 
-valbata = ['а', 'е', 'и', 'у', 'о']
-valbatt = ['я', 'э', 'ы', 'ю', 'ё']
+vals1 = ['а', 'е', 'и', 'у', 'о']
+vals2 = ['я', 'э', 'ы', 'ю', 'ё']
+valss = vals1 ++ vals2
+vabatas  = valss ++ map toUpper valss
 
-barbata = [' ', '-', '*', ',', '\'', '.']
+barbata = [',', '\'', '.']
 
 numbata = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 sepcodes = [0x2810, 0x2814 .. 0x2868]
 vepcodes = [0x2880, 0x2884 .. 0x28A4]
-bepcodes = [0x287A, 0x287B .. 0x287F]
+bepcodes = [0x287D, 0x287E,  0x287F]
 numcodes = [0x2870, 0x2871 .. 0x2879]
 
-alb = Map.fromList $ zip albata sepcodes
-vab = Map.union (Map.fromList (zip valbata vepcodes)) (Map.fromList (zip valbatt vepcodes))
+alb = Map.fromList $ zip albatas (sepcodes ++ sepcodes)
+vab = Map.fromList $ zip vabatas (vepcodes ++ vepcodes ++ vepcodes ++ vepcodes)
+
 bab = Map.fromList $ zip barbata bepcodes
 nup = Map.fromList $ zip numbata numcodes
 
-tabla = zip albata sepcodes
+tabla = zip albataM sepcodes
 
 isInTabla s = True
 
@@ -131,9 +138,9 @@ findTablaCode s | s `elem` al = alb ! s
                 | otherwise = 0x0600
                 where
                   cod s t = findIndex (\b -> b == s) t
-                  al = albata
-                  ba = barbata
-                  va = valbata
-                  na = numbata
+                  al = Map.keys alb
+                  va = Map.keys vab
+                  ba = Map.keys bab
+                  na = Map.keys nup
 
 codeToSym c = toEnum (read (show c):: Int) :: Char
