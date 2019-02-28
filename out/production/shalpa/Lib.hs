@@ -1,4 +1,4 @@
-module Lib (translate) where
+module Lib (translate, debug, symCodeSh) where
 
 import Data.List hiding (union)
 import System.Environment
@@ -14,7 +14,7 @@ import qualified Data.Map as Map
 f_start_code = 0x2800
 
 -- -------------------------
-
+debug = print . (map (codeToSym)) . fix_vols'
 
 translate :: [Char] -> [Char]
 translate l = unwords $ map (translate_word) (words l)
@@ -92,6 +92,8 @@ fix_vols' (x:y:xs)
         end_as = f_start_code + 0x0083
         ekr = symCodeSh '\\'
 
+
+-- translating word with key of middle
 translate_wordb :: String -> Bool -> [Int]
 translate_wordb w key
                | len >= 3 && key == False = [translate_symbol f First]  ++ (translate_wordb m True) ++ [translate_symbol l Last]

@@ -12,5 +12,5 @@ main = do
     args <- getArgs
     let argsl = unlines args
     hPutStrLn stdout $ translate argsl
-
+    debug [symCodeSh '\\', 0x2811, 0x2833]
 
