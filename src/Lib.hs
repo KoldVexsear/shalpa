@@ -36,6 +36,10 @@ pre_fix = pre_fixd . pre_fixa . pre_val_fix . (map toLower)
 pre_val_fix :: [Char] -> [Char]
 pre_val_fix [] = []
 pre_val_fix (x:xs)
+                 | x == 'й'         = 'и'  : pre_val_fix xs
+                 | x == 'ь'         = '\'' : pre_val_fix xs
+                 | x == 'ъ'         = '-'  : pre_val_fix xs
+                 | x == 'щ'         = 'ш'  : pre_val_fix xs
                  | x `elem` Map.keys vl = vl!x : pre_val_fix xs
                  | otherwise       = x    : pre_val_fix xs
                  where
@@ -87,7 +91,10 @@ fix_tiend (x:y:xs)
 -- fix breaks after end letters (bya)
 fix_ends :: [Int] -> [Int]
 fix_ends [] = []
-fix_ends (x : []) = [toEnd x]
+fix_ends (x : [])
+                | isFir x   = toSep x : []
+                | isMid x   = toEnd x : []
+                | otherwise = x :[ ]
 fix_ends (x:y:xs)
                 | not_zap x && not_zap y && (isEnd x ||  isSep x) && isMid y = x : fix_ends (toFir y : xs)
                 | not_zap x && not_zap y && (isEnd x ||  isSep x) && isMid y = x : fix_ends (toSep y   : xs)
