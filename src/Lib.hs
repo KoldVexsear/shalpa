@@ -9,6 +9,8 @@ import Data.Maybe
 import Data.Map (Map, (!), union)
 import qualified Data.Map as Map
 
+--TODO: Add Data type of ShalChar, don't translate other symbols
+
 -- -------------------------
 
 f_start_code = 0x2800
@@ -117,6 +119,7 @@ fix_vols [] = []
 fix_vols (x:[]) = [x]
 fix_vols (x:y:xs)
                 | x `elem` allvepcodes && y == long_term = (x + shift_long) : (fix_vols xs)
+                |                   y == long_term =  x               : (fix_vols xs)
                 | otherwise = x : fix_vols (y:xs)
                 where
                 shift_long = 0x0020
