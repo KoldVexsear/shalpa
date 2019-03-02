@@ -9,7 +9,8 @@ import System.IO
 main :: IO ()
 main = do
     hSetEncoding stdout utf8
-    args <- getArgs
-    let argsl = unlines args
-    hPutStrLn stdout $ translate argsl
-
+    args' <- getArgs
+    let args = unlines args'
+    let argsl = translate args
+    hPutStrLn stdout $ argsl
+    hPutStrLn stdout $ decode argsl

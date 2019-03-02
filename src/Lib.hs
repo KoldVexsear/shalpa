@@ -1,4 +1,4 @@
-module Lib (translate) where
+module Lib (translate, decode) where
 
 import Data.List hiding (union)
 import System.Environment
@@ -217,7 +217,7 @@ barbata = [',', '.']
 numbata = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 sepcodes = [f_start_code + 0x0010, f_start_code + 0x0014 .. f_start_code + 0x0068]
-vepcodes = [f_start_code + 0x0080, f_start_code + 0x0084 .. f_start_code + 0x00A4]
+vepcodes = [f_start_code + 0x0080, f_start_code + 0x0084 .. f_start_code + 0x00B3]
 bepcodes = [f_start_code + 0x007D, f_start_code + 0x007F]
 numcodes = [f_start_code + 0x0070, f_start_code + 0x0071 .. f_start_code + 0x0079]
 
@@ -252,3 +252,36 @@ isSep n = n `mod` 4 == 0
 isFir n = n `mod` 4 == 1
 isMid n = n `mod` 4 == 2
 isEnd n = n `mod` 4 == 3
+
+-- ------------------
+-- Detranslate Block
+-- ------------------
+
+dalb = Map.fromList $ zip sepcodes albata
+dvab = Map.fromList $ zip vepcodes vals1
+dbab = Map.fromList $ zip bepcodes barbata
+dnup = Map.fromList $ zip numcodes numbata
+dall = dalb `union` dvab `union` dbab `union` dnup
+
+pre_fix_decode :: [Char] -> [Char]
+pre_fix_decode [] = []
+pre_fix_decode (x:xs)
+                    | xz `elem` longvals = toEnum (xz - 0x0020)   : pre_fix_decode xs
+                    | xz == ati      = toEnum ta : toEnum ias : pre_fix_decode xs
+                    | otherwise     = x                      : pre_fix_decode xs
+                    where
+                    longvals = [f_start_code + 0x00A0 .. f_start_code + 0x00B3]
+                    xz  = fromEnum x
+                    ati = f_start_code + 0x00C0                         -- code '-ти'
+                    ta  = f_start_code + 0x001A                         -- code 'т'
+                    ias = f_start_code + 0x008B -- code 'и'
+
+pre_decode = (map (toEnum . toSep . fromEnum)) . pre_fix_decode
+
+decode = decodeM . pre_decode
+
+decodeM :: [Char] -> [Char]
+decodeM [] = []
+decodeM (x:xs)
+            | (fromEnum x) `elem` Map.keys dall = dall!(fromEnum x) : decode xs
+            | otherwise                    = x                 : decode xs
