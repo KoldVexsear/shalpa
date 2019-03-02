@@ -268,13 +268,21 @@ pre_fix_decode [] = []
 pre_fix_decode (x:xs)
                     | xz `elem` longvals = toEnum (xz - 0x0020)   : pre_fix_decode xs
                     | xz == ati      = toEnum ta : toEnum ias : pre_fix_decode xs
+                    | xz == g        = toEnum d  : toEnum zh  : pre_fix_decode xs
+                    | xz == j        = toEnum d  : toEnum z   : pre_fix_decode xs
                     | otherwise     = x                      : pre_fix_decode xs
                     where
                     longvals = [f_start_code + 0x00A0 .. f_start_code + 0x00B3]
                     xz  = fromEnum x
                     ati = f_start_code + 0x00C0                         -- code '-ти'
                     ta  = f_start_code + 0x001A                         -- code 'т'
-                    ias = f_start_code + 0x008B -- code 'и'
+                    ias = f_start_code + 0x008B                         -- code 'и'
+                    g   = f_start_code + 0x0060
+                    j   = f_start_code + 0x0064
+                    d   = f_start_code + 0x0028
+                    zh  = f_start_code + 0x005C
+                    z   = f_start_code + 0x002C
+
 
 pre_decode = (map (toEnum . toSep . fromEnum)) . pre_fix_decode
 
